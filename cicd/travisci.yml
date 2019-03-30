@@ -1,0 +1,64 @@
+language: python
+python:
+  - '3.6'
+sudo: false
+dist: trusty
+cache:
+  directories:
+    - $HOME/.cache/pip
+    - $HOME/.cache/wheels
+services:
+  - postgresql
+  - redis-server
+env:
+  global:
+  - secure: v/a3o7g37tlrS6ScVsCYCSmjekX73LUmIH6XAIxBg9XtK4FMpEkcl9ygVlyC/P3YtEn2jpStXyormrOvmD3Z5dk14l/F/g5rIcrT4JA60Rnyj1JhMudrXjJqQasXL+/VYhilkDOLV1hE4+sWWDnHPV4t4MOq5r4gVisO8UYBsV0PGYtmzi9GL9xS/JaiCkmW7VGq532/VnkCRA/fHIcrTBso+uxeBx8redC+FHgXxTBwJB5TFFk8ZVTzZzx3edz0rgsHM9mkL2x5p6K8m6Cz3BDDw6Ub+KZZt1AdSAKy8WucaTVnSoLNjoC6uSuyNR/YU0wcz+LyMNJTXrv8KXCDV8qi+ZKcOjk6B2UmTZP7FSJVuD7UQhmkjl+g3UO0oXAZlSmz16d+BugEu+Wbq7asmWWuvVx3iLqLokDtZs5uCms9/LuZI0ir9QhUJmM7yQNmmS9shlQ0O7fJRTpRoavCqReeVA02WG+Cfq8wRsCe/s/YE5ElDtIEkxGGMsPw6m0qrW/3x623gLsJypGa/YMLeOQh/EfGN1qGdBVo0c3Q2sWdWnj6tLtOn2h0GN/SVF/g6peLC9WaXg0v07/Hs1WV+pG6dYGMyRGb03IJPGE+bOaSeiXEKk3P1vwZEceSsUOLwG/KWuwUGGIeW+Ge4uiB0X5ArvSSC3k+asxRLRX2Rlo=
+  - secure: ex36TlE6A6pRG9zj518OVD4DtKuDZDp/WaKn4N8T1/YUKLEkHHoyjvf0R8KgNHIyED+kmFttptvpsGyQvxBU1AgLSlYUedZaX0Bp2LkqVZj0oDCaac27IPT91rBuVHM0//1ujZA0aASx0ZYjPSPWsAxlZx2EoaFDwX5aiqetMeQrgauz89KKUfxMyMt43aubOwdQJCK4aJ39iAYKLuQqrqVqI1Zkuc31S9t9gp8BZZ0uQNEDKuQU6B8mzn7EOT1sKMiSOGfa96Wf7+SgufXDfRpzfepJAGgnqE+gbgWLF+nu0Cd88DNDL/1khPi6nlJCuywzGUjDyI5+jWv6bUdCPELbpbiH7NStIc8HOzFpu0T02xtDWfu3gFTDblOkXwIVXLh5IWM2HaUZSY4rAjhEtoJW0H1JUEH/tcO6OO7FNfOgQNwTTbEKhcGXlrmGaXV3pZENXhQabt900bqryLHvfWaOF6V6R5YHucLTe6j2SCuyPdjhZSxCL96744gKW77E8L+VKk614h0PwLNhRVykvnHpzPBz0w2eHg8CVXC4lvWEDu5NoP1OLgatDNPI7lclKgTQGJgQoEl65u4VH9rZeqjNCGxX9QOmg0rG0tHqCceGoTwiHCQBsYD8fESCmWZ/lyHou2rhJgSP75yg/skHDsVYyRpw1oCuqtXVxhuEExo=
+  - ZEUS_HOOK_BASE=https://zeus.ci/hooks/66d11264-e07c-11e8-84a9-0a580a28042f/35e2177af827fccc999c96a09e3e3f8f6776cb92f559c8d6e73a3dd0c3a225b0
+addons:
+  ssh_known_hosts:
+    - 13.250.128.235
+branches:
+  only:
+    - test
+    - master
+    - release
+notifications:
+  webhooks:
+    urls:
+      - https://zeus.ci/hooks/66d11264-e07c-11e8-84a9-0a580a28042f/public/provider/travis/webhook
+    on_success: always
+    on_failure: always
+    on_start: always
+    on_cancel: always
+    on_error: always
+before_install:
+  # notify to telegram & create deployment.json
+  - deploy/travis/before_build.sh
+  # apt package install
+  - sudo apt-get update
+  - sudo apt-get install -y xvfb libfontconfig wkhtmltopdf
+  - sudo chmod +x deploy/travis/*.sh
+install:
+  # install requirements
+  - pip install -r requirements.txt
+  # set up aws credentials
+  - deploy/travis/aws_credentials.sh
+  - pip install awscli
+  - export PATH=$PATH:$HOME/.local/bin
+script:
+  # run test only on master branch
+  - pip install coverage
+  - deploy/travis/run_test.sh
+after_script:
+  - npm install -g @zeus-ci/cli
+  - pip install codecov
+  - coverage combine
+  - coverage xml
+  - zeus upload -t "text/xml+coverage" coverage.xml
+  - codecov --token=d692faad-a935-40fd-b486-400b17dbd453
+after_success:
+  - deploy/travis/build.sh
+  - deploy/travis/after_success.sh
+after_failure:
+  - deploy/travis/after_failure.sh
